@@ -126,8 +126,8 @@ namespace MsCrmTools.Translator.AppCode
                 }
 
                 int columnIndex = 4;
-
-                rmd.AssociatedMenuConfiguration.Label = new Label();
+                if (rmd.AssociatedMenuConfiguration.Label == null)
+                    rmd.AssociatedMenuConfiguration.Label = new Label();
 
                 while (columnIndex < cellsCount)
                 {
@@ -135,8 +135,11 @@ namespace MsCrmTools.Translator.AppCode
                     {
                         var lcid = int.Parse(ZeroBasedSheet.Cell(sheet, 0, columnIndex).Value.ToString());
                         var label = ZeroBasedSheet.Cell(sheet, rowI, columnIndex).Value.ToString();
-
-                        rmd.AssociatedMenuConfiguration.Label.LocalizedLabels.Add(new LocalizedLabel(label, lcid));
+                        var ll = rmd.AssociatedMenuConfiguration.Label.LocalizedLabels.FirstOrDefault(l => l.LanguageCode == lcid);
+                        if (ll != null)
+                            ll.Label = label;
+                        else
+                            rmd.AssociatedMenuConfiguration.Label.LocalizedLabels.Add(new LocalizedLabel(label, lcid));
                     }
 
                     columnIndex++;
@@ -153,7 +156,7 @@ namespace MsCrmTools.Translator.AppCode
                 };
 
                 AddRequest(request);
-                ExecuteMultiple(service, arg);
+                //ExecuteMultiple(service, arg);
             }
 
             ExecuteMultiple(service, arg, true);

@@ -137,6 +137,7 @@ namespace MsCrmTools.Translator.AppCode
 
         public void Import(ExcelWorksheet sheet, List<EntityMetadata> emds, IOrganizationService service, BackgroundWorker worker)
         {
+            OnLog(new LogEventArgs { Message = "Started entity import", Type = LogType.Info });
             var rowsCount = sheet.Dimension.Rows;
             var cellsCount = sheet.Dimension.Columns;
 
@@ -159,7 +160,8 @@ namespace MsCrmTools.Translator.AppCode
 
                 if (ZeroBasedSheet.Cell(sheet, rowI, 2).Value.ToString() == "DisplayName")
                 {
-                    emd.DisplayName = new Label();
+                    if (emd.DisplayName == null)
+                        emd.DisplayName = new Label();
                     int columnIndex = 3;
 
                     while (columnIndex < cellsCount)
@@ -168,8 +170,11 @@ namespace MsCrmTools.Translator.AppCode
                         {
                             var lcid = int.Parse(ZeroBasedSheet.Cell(sheet, 0, columnIndex).Value.ToString());
                             var label = ZeroBasedSheet.Cell(sheet, rowI, columnIndex).Value.ToString();
-
-                            emd.DisplayName.LocalizedLabels.Add(new LocalizedLabel(label, lcid));
+                            var ll = emd.DisplayName.LocalizedLabels.FirstOrDefault(l => l.LanguageCode == lcid);
+                            if (ll != null)
+                                ll.Label = label;
+                            else
+                                emd.DisplayName.LocalizedLabels.Add(new LocalizedLabel(label, lcid));
                         }
 
                         columnIndex++;
@@ -177,7 +182,8 @@ namespace MsCrmTools.Translator.AppCode
                 }
                 else if (ZeroBasedSheet.Cell(sheet, rowI, 2).Value.ToString() == "DisplayCollectionName")
                 {
-                    emd.DisplayCollectionName = new Label();
+                    if (emd.DisplayCollectionName == null)
+                        emd.DisplayCollectionName = new Label();
                     int columnIndex = 3;
 
                     while (columnIndex < cellsCount)
@@ -186,8 +192,11 @@ namespace MsCrmTools.Translator.AppCode
                         {
                             var lcid = int.Parse(ZeroBasedSheet.Cell(sheet, 0, columnIndex).Value.ToString());
                             var label = ZeroBasedSheet.Cell(sheet, rowI, columnIndex).Value.ToString();
-
-                            emd.DisplayCollectionName.LocalizedLabels.Add(new LocalizedLabel(label, lcid));
+                            var ll = emd.DisplayCollectionName.LocalizedLabels.FirstOrDefault(l => l.LanguageCode == lcid);
+                            if (ll != null)
+                                ll.Label = label;
+                            else
+                                emd.DisplayCollectionName.LocalizedLabels.Add(new LocalizedLabel(label, lcid));
                         }
 
                         columnIndex++;
@@ -195,7 +204,8 @@ namespace MsCrmTools.Translator.AppCode
                 }
                 else if (ZeroBasedSheet.Cell(sheet, rowI, 2).Value.ToString() == "Description")
                 {
-                    emd.Description = new Label();
+                    if (emd.Description == null)
+                        emd.Description = new Label();
                     int columnIndex = 3;
 
                     while (columnIndex < cellsCount)
@@ -204,8 +214,11 @@ namespace MsCrmTools.Translator.AppCode
                         {
                             var lcid = int.Parse(ZeroBasedSheet.Cell(sheet, 0, columnIndex).Value.ToString());
                             var label = ZeroBasedSheet.Cell(sheet, rowI, columnIndex).Value.ToString();
-
-                            emd.Description.LocalizedLabels.Add(new LocalizedLabel(label, lcid));
+                            var ll = emd.Description.LocalizedLabels.FirstOrDefault(l => l.LanguageCode == lcid);
+                            if (ll != null)
+                                ll.Label = label;
+                            else
+                                emd.Description.LocalizedLabels.Add(new LocalizedLabel(label, lcid));
                         }
 
                         columnIndex++;
@@ -225,10 +238,11 @@ namespace MsCrmTools.Translator.AppCode
                 entityUpdate.DisplayCollectionName = emd.DisplayCollectionName;
 
                 AddRequest(new UpdateEntityRequest { Entity = entityUpdate, MergeLabels = true });
-                ExecuteMultiple(service, arg);
+                //ExecuteMultiple(service, arg);
             }
 
             ExecuteMultiple(service, arg, true);
+            OnLog(new LogEventArgs { Message = "Completed entity import", Type = LogType.Info });
         }
 
         private void AddHeader(ExcelWorksheet sheet, IEnumerable<int> languages)

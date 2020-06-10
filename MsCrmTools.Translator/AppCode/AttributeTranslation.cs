@@ -150,16 +150,18 @@ namespace MsCrmTools.Translator.AppCode
 
         public void Import(ExcelWorksheet sheet, List<EntityMetadata> emds, IOrganizationService service, BackgroundWorker worker)
         {
+            OnLog(new LogEventArgs { Message = "Started attribute import", Type = LogType.Info });
+
             var amds = new List<MasterAttribute>();
 
             var rowsCount = sheet.Dimension.Rows;
             var cellsCount = sheet.Dimension.Columns;
             for (var rowI = 1; rowI < rowsCount; rowI++)
             {
+                var currentEntity = emds.FirstOrDefault(e => e.LogicalName == ZeroBasedSheet.Cell(sheet, rowI, 1).Value.ToString());
                 var amd = amds.FirstOrDefault(a => a.Amd.MetadataId == new Guid(ZeroBasedSheet.Cell(sheet, rowI, 0).Value.ToString()));
                 if (amd == null)
                 {
-                    var currentEntity = emds.FirstOrDefault(e => e.LogicalName == ZeroBasedSheet.Cell(sheet, rowI, 1).Value.ToString());
                     if (currentEntity == null)
                     {
                         var request = new RetrieveEntityRequest
@@ -196,7 +198,8 @@ namespace MsCrmTools.Translator.AppCode
 
                 if (ZeroBasedSheet.Cell(sheet, rowI, 3).Value.ToString() == "DisplayName")
                 {
-                    amd.Amd.DisplayName = new Label();
+                    if (amd.Amd.DisplayName == null)
+                        amd.Amd.DisplayName = new Label();
 
                     while (columnIndex < cellsCount)
                     {
@@ -204,14 +207,25 @@ namespace MsCrmTools.Translator.AppCode
                         {
                             var lcid = int.Parse(ZeroBasedSheet.Cell(sheet, 0, columnIndex).Value.ToString());
                             var label = ZeroBasedSheet.Cell(sheet, rowI, columnIndex).Value.ToString();
-                            amd.Amd.DisplayName.LocalizedLabels.Add(new LocalizedLabel(label, lcid));
+                            var ll = amd.Amd.DisplayName.LocalizedLabels.FirstOrDefault(l => l.LanguageCode == lcid);
+                            if (ll != null)
+                                ll.Label = label;
+                            else
+                                amd.Amd.DisplayName.LocalizedLabels.Add(new LocalizedLabel(label, lcid));
                         }
                         columnIndex++;
                     }
+                    /*if (!amd.Amd.DisplayName.LocalizedLabels.Any(l => l.LanguageCode == 1033))
+                    {
+                        var enLab = currentEntity.Attributes.FirstOrDefault(a => a.LogicalName == amd.Amd.LogicalName)?.DisplayName.LocalizedLabels.FirstOrDefault(l => l.LanguageCode == 1033);
+                        if (enLab != null)
+                            amd.Amd.DisplayName.LocalizedLabels.Add(new LocalizedLabel(enLab.Label, 1033));
+                    }*/
                 }
                 else if (ZeroBasedSheet.Cell(sheet, rowI, 3).Value.ToString() == "Description")
                 {
-                    amd.Amd.Description = new Label();
+                    if (amd.Amd.Description == null)
+                        amd.Amd.Description = new Label();
 
                     while (columnIndex < cellsCount)
                     {
@@ -219,7 +233,11 @@ namespace MsCrmTools.Translator.AppCode
                         {
                             var lcid = int.Parse(ZeroBasedSheet.Cell(sheet, 0, columnIndex).Value.ToString());
                             var label = ZeroBasedSheet.Cell(sheet, rowI, columnIndex).Value.ToString();
-                            amd.Amd.Description.LocalizedLabels.Add(new LocalizedLabel(label, lcid));
+                            var ll = amd.Amd.Description.LocalizedLabels.FirstOrDefault(l => l.LanguageCode == lcid);
+                            if (ll != null)
+                                ll.Label = label;
+                            else
+                                amd.Amd.Description.LocalizedLabels.Add(new LocalizedLabel(label, lcid));
                         }
 
                         columnIndex++;
@@ -244,9 +262,10 @@ namespace MsCrmTools.Translator.AppCode
                     MergeLabels = true
                 });
 
-                ExecuteMultiple(service, arg);
+                //ExecuteMultiple(service, arg);
             }
             ExecuteMultiple(service, arg, true);
+            OnLog(new LogEventArgs { Message = "Completed attribute import", Type = LogType.Info });
         }
 
         private void AddHeader(ExcelWorksheet sheet, IEnumerable<int> languages)

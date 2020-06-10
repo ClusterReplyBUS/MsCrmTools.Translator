@@ -206,6 +206,10 @@ namespace MsCrmTools.Translator
                         {
                             LogInfo(evt.Message);
                         }
+                        logTextBox.Invoke((MethodInvoker)delegate {
+                            // Running on the UI thread
+                            logTextBox.AppendText($"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")} - {evt.Message}{Environment.NewLine}");
+                        });                        
                     };
                     engine.OnProgress += (sender, evt) =>
                     {

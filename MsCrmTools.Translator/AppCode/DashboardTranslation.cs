@@ -287,7 +287,7 @@ namespace MsCrmTools.Translator.AppCode
             foreach (var request in requests)
             {
                 AddRequest(request);
-                ExecuteMultiple(service, arg);
+                //ExecuteMultiple(service, arg);
             }
             ExecuteMultiple(service, arg, true);
         }
@@ -299,7 +299,7 @@ namespace MsCrmTools.Translator.AppCode
             foreach (var form in forms)
             {
                 AddRequest(new UpdateRequest { Target = form });
-                ExecuteMultiple(service, arg);
+                //ExecuteMultiple(service, arg);
             }
             ExecuteMultiple(service, arg, true);
         }

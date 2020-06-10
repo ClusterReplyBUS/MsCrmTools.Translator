@@ -188,7 +188,11 @@ namespace MsCrmTools.Translator.AppCode
 
                             if (sLcid.Length > 0 && sLabel.Length > 0)
                             {
-                                request.Label.LocalizedLabels.Add(new LocalizedLabel(sLabel, int.Parse(sLcid)));
+                                var ll = request.Label.LocalizedLabels.FirstOrDefault(l => l.LanguageCode == int.Parse(sLcid));
+                                if (ll != null)
+                                    ll.Label = sLabel;
+                                else
+                                    request.Label.LocalizedLabels.Add(new LocalizedLabel(sLabel, int.Parse(sLcid)));
                             }
                             columnIndex++;
                         }
@@ -203,7 +207,11 @@ namespace MsCrmTools.Translator.AppCode
 
                             if (sLcid.Length > 0 && sLabel.Length > 0)
                             {
-                                request.Description.LocalizedLabels.Add(new LocalizedLabel(sLabel, int.Parse(sLcid)));
+                                var ll = request.Description.LocalizedLabels.FirstOrDefault(l => l.LanguageCode == int.Parse(sLcid));
+                                if (ll != null)
+                                    ll.Label = sLabel;
+                                else
+                                    request.Description.LocalizedLabels.Add(new LocalizedLabel(sLabel, int.Parse(sLcid)));
                             }
                             columnIndex++;
                         }
@@ -225,7 +233,11 @@ namespace MsCrmTools.Translator.AppCode
 
                             if (sLcid.Length > 0 && sLabel.Length > 0)
                             {
-                                request.Label.LocalizedLabels.Add(new LocalizedLabel(sLabel, int.Parse(sLcid)));
+                                var ll = request.Label.LocalizedLabels.FirstOrDefault(l => l.LanguageCode == int.Parse(sLcid));
+                                if (ll != null)
+                                    ll.Label = sLabel;
+                                else
+                                    request.Label.LocalizedLabels.Add(new LocalizedLabel(sLabel, int.Parse(sLcid)));
                             }
                             columnIndex++;
                         }
@@ -240,7 +252,11 @@ namespace MsCrmTools.Translator.AppCode
 
                             if (sLcid.Length > 0 && sLabel.Length > 0)
                             {
-                                request.Description.LocalizedLabels.Add(new LocalizedLabel(sLabel, int.Parse(sLcid)));
+                                var ll = request.Description.LocalizedLabels.FirstOrDefault(l => l.LanguageCode == int.Parse(sLcid));
+                                if (ll != null)
+                                    ll.Label = sLabel;
+                                else
+                                    request.Description.LocalizedLabels.Add(new LocalizedLabel(sLabel, int.Parse(sLcid)));
                             }
                             columnIndex++;
                         }
@@ -252,7 +268,7 @@ namespace MsCrmTools.Translator.AppCode
             foreach (var request in requests)
             {
                 AddRequest(request);
-                ExecuteMultiple(service, arg);
+                //ExecuteMultiple(service, arg);
             }
             ExecuteMultiple(service, arg, true);
         }

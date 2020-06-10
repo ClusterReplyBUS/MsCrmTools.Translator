@@ -234,6 +234,7 @@ namespace MsCrmTools.Translator.AppCode
 
         public void Import(ExcelWorksheet sheet, IOrganizationService service, BackgroundWorker worker)
         {
+            OnLog(new LogEventArgs { Message = "Started global optionset import", Type = LogType.Info });
             var requests = new List<UpdateOptionValueRequest>();
 
             var rowsCount = sheet.Dimension.Rows;
@@ -265,7 +266,11 @@ namespace MsCrmTools.Translator.AppCode
 
                             if (sLcid.Length > 0 && sLabel.Length > 0)
                             {
-                                request.Label.LocalizedLabels.Add(new LocalizedLabel(sLabel, int.Parse(sLcid)));
+                                var ll = request.Label.LocalizedLabels.FirstOrDefault(l => l.LanguageCode == int.Parse(sLcid));
+                                if (ll != null)
+                                    ll.Label = sLabel;
+                                else
+                                    request.Label.LocalizedLabels.Add(new LocalizedLabel(sLabel, int.Parse(sLcid)));
                             }
 
                             columnIndex++;
@@ -281,7 +286,11 @@ namespace MsCrmTools.Translator.AppCode
 
                             if (sLcid.Length > 0 && sLabel.Length > 0)
                             {
-                                request.Description.LocalizedLabels.Add(new LocalizedLabel(sLabel, int.Parse(sLcid)));
+                                var ll = request.Description.LocalizedLabels.FirstOrDefault(l => l.LanguageCode == int.Parse(sLcid));
+                                if (ll != null)
+                                    ll.Label = sLabel;
+                                else
+                                    request.Description.LocalizedLabels.Add(new LocalizedLabel(sLabel, int.Parse(sLcid)));
                             }
 
                             columnIndex++;
@@ -304,7 +313,11 @@ namespace MsCrmTools.Translator.AppCode
 
                             if (sLcid.Length > 0 && sLabel.Length > 0)
                             {
-                                request.Label.LocalizedLabels.Add(new LocalizedLabel(sLabel, int.Parse(sLcid)));
+                                var ll = request.Label.LocalizedLabels.FirstOrDefault(l => l.LanguageCode == int.Parse(sLcid));
+                                if (ll != null)
+                                    ll.Label = sLabel;
+                                else
+                                    request.Label.LocalizedLabels.Add(new LocalizedLabel(sLabel, int.Parse(sLcid)));
                             }
                             columnIndex++;
                         }
@@ -319,7 +332,11 @@ namespace MsCrmTools.Translator.AppCode
 
                             if (sLcid.Length > 0 && sLabel.Length > 0)
                             {
-                                request.Description.LocalizedLabels.Add(new LocalizedLabel(sLabel, int.Parse(sLcid)));
+                                var ll = request.Description.LocalizedLabels.FirstOrDefault(l => l.LanguageCode == int.Parse(sLcid));
+                                if (ll != null)
+                                    ll.Label = sLabel;
+                                else
+                                    request.Description.LocalizedLabels.Add(new LocalizedLabel(sLabel, int.Parse(sLcid)));
                             }
                             columnIndex++;
                         }
@@ -331,9 +348,10 @@ namespace MsCrmTools.Translator.AppCode
             foreach (var request in requests)
             {
                 AddRequest(request);
-                ExecuteMultiple(service, arg);
+                //ExecuteMultiple(service, arg);
             }
             ExecuteMultiple(service, arg, true);
+            OnLog(new LogEventArgs { Message = "Completed global optionset import", Type = LogType.Info });
         }
 
         private void AddHeader(ExcelWorksheet sheet, IEnumerable<int> languages)

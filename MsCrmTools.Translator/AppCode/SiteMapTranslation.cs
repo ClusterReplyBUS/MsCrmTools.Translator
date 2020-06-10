@@ -388,7 +388,7 @@ namespace MsCrmTools.Translator.AppCode
                 if (siteMapsToTranslate.Contains(siteMap.Id))
                 {
                     AddRequest(new UpdateRequest { Target = siteMap });
-                    ExecuteMultiple(service, arg);
+                    //ExecuteMultiple(service, arg);
                 }
             }
 

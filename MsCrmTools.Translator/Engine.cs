@@ -236,6 +236,7 @@ namespace MsCrmTools.Translator
 
         public void Import(string filePath, IOrganizationService service, BackgroundWorker worker = null)
         {
+            Engine_Log(this, new LogEventArgs { Type = LogType.Info, Message = $"Import process started from file '{filePath}'" });
             using (var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {
                 var file = new ExcelPackage(stream);
@@ -493,6 +494,7 @@ namespace MsCrmTools.Translator
                         //    SheetName = sheet.Name,
                         //    Message = error.Message
                         //});
+                        Engine_Log(this, new LogEventArgs { Type = LogType.Error, Message = $"{error.ToString()}" });
                     }
                     finally
                     {
@@ -555,6 +557,7 @@ namespace MsCrmTools.Translator
                     Overall = 100
                 });
             }
+            Engine_Log(this, new LogEventArgs { Type = LogType.Info, Message = $"Import process ended from file '{filePath}'" });
         }
 
         private void Engine_Log(object sender, LogEventArgs e)

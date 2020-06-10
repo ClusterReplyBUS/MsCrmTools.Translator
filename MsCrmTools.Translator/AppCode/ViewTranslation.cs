@@ -217,7 +217,7 @@ namespace MsCrmTools.Translator.AppCode
             foreach (var request in requests)
             {
                 AddRequest(request);
-                ExecuteMultiple(service, arg);
+                //ExecuteMultiple(service, arg);
             }
             ExecuteMultiple(service, arg, true);
         }

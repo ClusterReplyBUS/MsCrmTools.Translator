@@ -2,7 +2,10 @@
 using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Messages;
 using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace MsCrmTools.Translator.AppCode
 {
@@ -15,8 +18,10 @@ namespace MsCrmTools.Translator.AppCode
 
     public class BaseTranslation
     {
+        private const int MAX_REQUESTS = 5;
         protected string name;
-        private ExecuteMultipleRequest request;
+        private Queue<ExecuteMultipleRequest> requestsQueue;
+        private ExecuteMultipleRequest latestRequest;
 
         public event EventHandler<LogEventArgs> Log;
 
@@ -34,105 +39,191 @@ namespace MsCrmTools.Translator.AppCode
 
         protected void AddRequest(OrganizationRequest or)
         {
-            if (request == null) InitMultipleRequest();
-
-            request.Requests.Add(or);
+            if (requestsQueue == null)
+                requestsQueue = new Queue<ExecuteMultipleRequest>();
+            if (latestRequest == null)
+                latestRequest = new ExecuteMultipleRequest
+                {
+                    Requests = new OrganizationRequestCollection(),
+                    Settings = new ExecuteMultipleSettings
+                    {
+                        ContinueOnError = true,
+                        ReturnResponses = false
+                    }
+                };
+            latestRequest.Requests.Add(or);
+            if (latestRequest.Requests.Count >= MAX_REQUESTS)
+            {
+                requestsQueue.Enqueue(latestRequest);
+                latestRequest = new ExecuteMultipleRequest
+                {
+                    Requests = new OrganizationRequestCollection(),
+                    Settings = new ExecuteMultipleSettings
+                    {
+                        ContinueOnError = true,
+                        ReturnResponses = false
+                    }
+                };
+            }
         }
 
-        protected void ExecuteMultiple(IOrganizationService service, TranslationProgressEventArgs e, bool forceUpdate = false)
+        protected void ExecuteMultiple(IOrganizationService service, TranslationProgressEventArgs e, bool forceUpdate /*= false*/)
         {
-            if (request == null) return;
-            if (request.Requests.Count % 1000 != 0 && forceUpdate == false) return;
-
-            e.SheetName = name;
-            e.TotalItems += request.Requests.Count;
-
-            OnResult(e);
-
-            var bulkResponse = (ExecuteMultipleResponse)service.Execute(request);
-
-            if (bulkResponse.IsFaulted)
+            if (requestsQueue == null)
+                return;
+            requestsQueue.Enqueue(latestRequest);
+            var list = requestsQueue.ToList();
+            while (requestsQueue.Count > 0)
             {
-                e.FailureCount += bulkResponse.Responses.Count(r => r.Fault != null);
-                e.SuccessCount += request.Requests.Count - bulkResponse.Responses.Count;
+                var request = requestsQueue.Dequeue();
+                //if (request.Requests.Count % 1000 != 0 && forceUpdate == false) return;
 
-                foreach (var response in bulkResponse.Responses)
+                e.SheetName = name;
+                e.TotalItems += request.Requests.Count;
+
+                OnResult(e);
+                try
                 {
-                    if (response.Fault != null)
+                    var bulkResponse = (ExecuteMultipleResponse)service.Execute(request);
+
+                    if (bulkResponse.IsFaulted)
+                    {
+                        e.FailureCount += bulkResponse.Responses.Count(r => r.Fault != null);
+                        e.SuccessCount += request.Requests.Count - bulkResponse.Responses.Count;
+
+                        foreach (var response in bulkResponse.Responses)
+                        {
+                            if (response.Fault != null)
+                            {
+                                string message;
+                                var faultIndex = response.RequestIndex;
+                                var faultRequest = request.Requests[faultIndex];
+
+                                if (faultRequest is UpdateRequest ur)
+                                {
+                                    message =
+                                        $"Error while updating record {ur.Target.LogicalName} ({ur.Target.Id}): {response.Fault.Message}";
+                                }
+                                else if (faultRequest is UpdateAttributeRequest uar)
+                                {
+                                    message =
+                                        $"Error while updating attribute {uar.Attribute.LogicalName}: {response.Fault.Message}";
+                                }
+                                else if (faultRequest is UpdateRelationshipRequest urr)
+                                {
+                                    message =
+                                        $"Error while updating relationship {urr.Relationship.SchemaName}: {response.Fault.Message}";
+                                }
+                                else if (faultRequest is UpdateOptionSetRequest uosr)
+                                {
+                                    message =
+                                        $"Error while updating optionset {uosr.OptionSet.Name}: {response.Fault.Message}";
+                                }
+                                else if (faultRequest is UpdateOptionValueRequest uovr)
+                                {
+                                    if (!string.IsNullOrEmpty(uovr.OptionSetName))
+                                    {
+                                        message =
+                                            $"Error while updating global optionset ({uovr.OptionSetName}) value ({uovr.Value}) label: {response.Fault.Message}";
+                                    }
+                                    else
+                                    {
+                                        message =
+                                            $"Error while updating option ({uovr.Value}) label for attribute {uovr.AttributeLogicalName} ({uovr.EntityLogicalName}): {response.Fault.Message}";
+                                    }
+                                }
+                                else if (faultRequest is SetLocLabelsRequest sllr)
+                                {
+                                    message =
+                                        $"Error while updating {sllr.AttributeName} of record {sllr.EntityMoniker.LogicalName} ({sllr.EntityMoniker.Id}): {response.Fault.Message}";
+                                }
+                                else
+                                {
+                                    message = response.Fault.Message;
+                                }
+
+                                OnLog(new LogEventArgs(message) { Type = LogType.Error });
+                            }
+                        }
+                    }
+                    else
+                    {
+                        e.SuccessCount += request.Requests.Count;
+                    }
+
+                    OnResult(e);
+                }
+                catch (Exception ex)
+                {
+                    e.FailureCount += request.Requests.Count;
+                    foreach (var faultRequest in request.Requests)
                     {
                         string message;
-                        var faultIndex = response.RequestIndex;
-                        var faultRequest = request.Requests[faultIndex];
 
                         if (faultRequest is UpdateRequest ur)
                         {
                             message =
-                                $"Error while updating record {ur.Target.LogicalName} ({ur.Target.Id}): {response.Fault.Message}";
+                                $"Error while updating record {ur.Target.LogicalName} ({ur.Target.Id}): {ex}";
                         }
                         else if (faultRequest is UpdateAttributeRequest uar)
                         {
                             message =
-                                $"Error while updating attribute {uar.Attribute.LogicalName}: {response.Fault.Message}";
+                                $"Error while updating attribute {uar.Attribute.LogicalName}: {ex}";
                         }
                         else if (faultRequest is UpdateRelationshipRequest urr)
                         {
                             message =
-                                $"Error while updating relationship {urr.Relationship.SchemaName}: {response.Fault.Message}";
+                                $"Error while updating relationship {urr.Relationship.SchemaName}: {ex}";
                         }
                         else if (faultRequest is UpdateOptionSetRequest uosr)
                         {
                             message =
-                                $"Error while updating optionset {uosr.OptionSet.Name}: {response.Fault.Message}";
+                                $"Error while updating optionset {uosr.OptionSet.Name}: {ex}";
                         }
                         else if (faultRequest is UpdateOptionValueRequest uovr)
                         {
                             if (!string.IsNullOrEmpty(uovr.OptionSetName))
                             {
                                 message =
-                                    $"Error while updating global optionset ({uovr.OptionSetName}) value ({uovr.Value}) label: {response.Fault.Message}";
+                                    $"Error while updating global optionset ({uovr.OptionSetName}) value ({uovr.Value}) label: {ex}";
                             }
                             else
                             {
                                 message =
-                                    $"Error while updating option ({uovr.Value}) label for attribute {uovr.AttributeLogicalName} ({uovr.EntityLogicalName}): {response.Fault.Message}";
+                                    $"Error while updating option ({uovr.Value}) label for attribute {uovr.AttributeLogicalName} ({uovr.EntityLogicalName}): {ex}";
                             }
                         }
                         else if (faultRequest is SetLocLabelsRequest sllr)
                         {
                             message =
-                                $"Error while updating {sllr.AttributeName} of record {sllr.EntityMoniker.LogicalName} ({sllr.EntityMoniker.Id}): {response.Fault.Message}";
+                                $"Error while updating {sllr.AttributeName} of record {sllr.EntityMoniker.LogicalName} ({sllr.EntityMoniker.Id}): {ex}";
                         }
                         else
                         {
-                            message = response.Fault.Message;
+                            message = ex.ToString();
                         }
 
                         OnLog(new LogEventArgs(message) { Type = LogType.Error });
                     }
                 }
+                //InitMultipleRequest();
             }
-            else
-            {
-                e.SuccessCount += request.Requests.Count;
-            }
-
-            OnResult(e);
-
-            InitMultipleRequest();
         }
-
-        protected void InitMultipleRequest()
-        {
-            request = new ExecuteMultipleRequest
-            {
-                Requests = new OrganizationRequestCollection(),
-                Settings = new ExecuteMultipleSettings
+        /*
+                protected void InitMultipleRequest()
                 {
-                    ContinueOnError = true,
-                    ReturnResponses = false
-                }
-            };
-        }
+
+                    latestRequest = new ExecuteMultipleRequest
+                    {
+                        Requests = new OrganizationRequestCollection(),
+                        Settings = new ExecuteMultipleSettings
+                        {
+                            ContinueOnError = true,
+                            ReturnResponses = false
+                        }
+                    };
+                    requests.Enqueue(latestRequest);
+                }*/
     }
 
     public class LogEventArgs : EventArgs
